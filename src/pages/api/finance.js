@@ -1,5 +1,5 @@
 // filepath: /c:/Users/bhave/fintola/src/pages/api/finance.js
-const yahooFinance = require('yahoo-finance2').default;
+import yahooFinance from 'yahoo-finance2';
 
 export default async function handler(req, res) {
   try {

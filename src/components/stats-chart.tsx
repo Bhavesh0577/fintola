@@ -157,7 +157,7 @@ useEffect(() => {
         if (data && data.quotes && Array.isArray(data.quotes)) {
           const formattedData = data.quotes
             .filter(
-              (entry: any) =>
+              (entry: { open: number; high: number; low: number; close: number; date: string }) =>
                 typeof entry.open === "number" &&
                 typeof entry.high === "number" &&
                 typeof entry.low === "number" &&

@@ -3,7 +3,18 @@
 import React, { useEffect, useRef } from "react";
 import { createChart, IChartApi, ISeriesApi } from "lightweight-charts";
 
-const TradeWithIndicators = () => {
+import { Time } from "lightweight-charts";
+
+const calculateSMA = (data: { time: Time; close: number }[], period: number) => {
+  const smaData = [];
+  for (let i = period - 1; i < data.length; i++) {
+    const sum = data.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val.close, 0);
+    smaData.push({ time: data[i].time, value: sum / period });
+  }
+  return smaData;
+};
+
+const Trade = () => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -40,7 +51,7 @@ const TradeWithIndicators = () => {
 
       chartRef.current = chart;
 
-      // Add candlestick series
+      // Add a candlestick series
       const candlestickSeries = chart.addCandlestickSeries({
         upColor: "#4caf50",
         downColor: "#f44336",
@@ -51,10 +62,9 @@ const TradeWithIndicators = () => {
 
       candlestickSeriesRef.current = candlestickSeries;
 
-      // Add a line series for the moving average
+      // Add a moving average series
       const movingAverageSeries = chart.addLineSeries({
-        color: "#ff9800",
-        lineWidth: 2,
+        color: "blue",
       });
 
       movingAverageSeriesRef.current = movingAverageSeries;
@@ -65,13 +75,13 @@ const TradeWithIndicators = () => {
         .then((data) => {
           if (data && data.quotes && Array.isArray(data.quotes)) {
             const formattedData = data.quotes
-              .filter((entry: any) => 
+              .filter((entry: { open: number; high: number; low: number; close: number; date: string }) => 
                 typeof entry.open === 'number' &&
                 typeof entry.high === 'number' &&
                 typeof entry.low === 'number' &&
                 typeof entry.close === 'number'
               )
-              .map((entry: any) => ({
+              .map((entry: { open: number; high: number; low: number; close: number; date: string }) => ({
                 time: new Date(entry.date).getTime() / 1000, // Convert to UNIX timestamp
                 open: entry.open,
                 high: entry.high,
@@ -97,20 +107,6 @@ const TradeWithIndicators = () => {
     };
   }, []);
 
-  // Function to calculate a simple moving average (SMA)
-  const calculateSMA = (data: any[], period: number) => {
-    const sma = [];
-    for (let i = 0; i < data.length; i++) {
-      if (i >= period - 1) {
-        const sum = data
-          .slice(i - period + 1, i + 1)
-          .reduce((acc, curr) => acc + curr.close, 0);
-        sma.push({ time: data[i].time, value: sum / period });
-      }
-    }
-    return sma;
-  };
-
   return (
     <div>
       <h1 style={{ textAlign: "center" }}>Chart with Indicators</h1>
@@ -119,4 +115,4 @@ const TradeWithIndicators = () => {
   );
 };
 
-export default TradeWithIndicators;
+export default Trade;
