@@ -1,7 +1,23 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { createChart, IChartApi, ISeriesApi } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, UTCTimestamp, LineData, CandlestickData } from "lightweight-charts";
+
+interface Quote {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  date: string;
+}
+
+interface Marker {
+  time: UTCTimestamp;
+  position: "aboveBar" | "belowBar";
+  color: string;
+  shape: "arrowUp" | "arrowDown";
+  text: string;
+}
 
 export function StatsChart() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -11,13 +27,13 @@ export function StatsChart() {
   const emaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
   // Local state to hold the formatted candlestick data and indicator toggles
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<CandlestickData[]>([]);
   const [showSMA, setShowSMA] = useState(false);
   const [showEMA, setShowEMA] = useState(false);
 
   // Helper function to calculate a 14-period Simple Moving Average (SMA)
-  const calculateSMA = (data: any[], period: number) => {
-    const sma = [];
+  const calculateSMA = (data: CandlestickData[], period: number): LineData[] => {
+    const sma: LineData[] = [];
     for (let i = 0; i < data.length; i++) {
       if (i >= period - 1) {
         const sum = data
@@ -29,78 +45,9 @@ export function StatsChart() {
     return sma;
   };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-useEffect(() => {
-  if (!chartData.length || !chartRef.current) return;
-  const chart = chartRef.current;
-
-  // Calculate short and long EMAs
-  const shortEMA = calculateEMA(chartData, 3);
-  const longEMA = calculateEMA(chartData, 30);
-
-  // Find crossover points for buy/sell signals
-  const markers = [];
-  for (let i = 1; i < shortEMA.length && i < longEMA.length; i++) {
-    if (shortEMA[i - 1].value < longEMA[i - 1].value && shortEMA[i].value > longEMA[i].value) {
-      markers.push({ time: shortEMA[i].time, position: "belowBar", color: "green", shape: "arrowUp", text: "BUY" });
-    } else if (shortEMA[i - 1].value > longEMA[i - 1].value && shortEMA[i].value < longEMA[i].value) {
-      markers.push({ time: shortEMA[i].time, position: "aboveBar", color: "red", shape: "arrowDown", text: "SELL" });
-    }
-  }
-
-  // Add EMA series to the chart
-  const shortEMASeries = chart.addLineSeries({ color: "#00ff00", lineWidth: 2 });
-  const longEMASeries = chart.addLineSeries({ color: "#ff0000", lineWidth: 2 });
-
-  shortEMASeries.setData(shortEMA);
-  longEMASeries.setData(longEMA);
-
-  // Add buy/sell markers to the candlestick series
-  candlestickSeriesRef.current?.setMarkers(markers);
-
-  return () => {
-    chart.removeSeries(shortEMASeries);
-    chart.removeSeries(longEMASeries);
-  };
-}, [chartData]);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   // Helper function to calculate a 14-period Exponential Moving Average (EMA)
-  const calculateEMA = (data: any[], period: number) => {
-    const ema = [];
+  const calculateEMA = (data: CandlestickData[], period: number): LineData[] => {
+    const ema: LineData[] = [];
     const k = 2 / (period + 1);
     let prevEma = 0;
     for (let i = 0; i < data.length; i++) {
@@ -117,6 +64,40 @@ useEffect(() => {
     }
     return ema;
   };
+
+  useEffect(() => {
+    if (!chartData.length || !chartRef.current) return;
+    const chart = chartRef.current;
+
+    // Calculate short and long EMAs
+    const shortEMA = calculateEMA(chartData, 3);
+    const longEMA = calculateEMA(chartData, 30);
+
+    // Find crossover points for buy/sell signals
+    const markers: Marker[] = [];
+    for (let i = 1; i < shortEMA.length && i < longEMA.length; i++) {
+      if (shortEMA[i - 1].value < longEMA[i - 1].value && shortEMA[i].value > longEMA[i].value) {
+        markers.push({ time: shortEMA[i].time as UTCTimestamp, position: "belowBar", color: "green", shape: "arrowUp", text: "BUY" });
+      } else if (shortEMA[i - 1].value > longEMA[i - 1].value && shortEMA[i].value < longEMA[i].value) {
+        markers.push({ time: shortEMA[i].time as UTCTimestamp, position: "aboveBar", color: "red", shape: "arrowDown", text: "SELL" });
+      }
+    }
+
+    // Add EMA series to the chart
+    const shortEMASeries = chart.addLineSeries({ color: "#00ff00", lineWidth: 2 });
+    const longEMASeries = chart.addLineSeries({ color: "#ff0000", lineWidth: 2 });
+
+    shortEMASeries.setData(shortEMA);
+    longEMASeries.setData(longEMA);
+
+    // Add buy/sell markers to the candlestick series
+    candlestickSeriesRef.current?.setMarkers(markers);
+
+    return () => {
+      chart.removeSeries(shortEMASeries);
+      chart.removeSeries(longEMASeries);
+    };
+  }, [chartData]);
 
   // Chart creation and data fetching (runs once on mount)
   useEffect(() => {
@@ -155,16 +136,16 @@ useEffect(() => {
       .then((res) => res.json())
       .then((data) => {
         if (data && data.quotes && Array.isArray(data.quotes)) {
-          const formattedData = data.quotes
+          const formattedData: CandlestickData[] = data.quotes
             .filter(
-              (entry: { open: number; high: number; low: number; close: number; date: string }) =>
+              (entry: Quote) =>
                 typeof entry.open === "number" &&
                 typeof entry.high === "number" &&
                 typeof entry.low === "number" &&
                 typeof entry.close === "number"
             )
-            .map((entry: any) => ({
-              time: new Date(entry.date).getTime() / 1000, // UNIX timestamp (seconds)
+            .map((entry: Quote) => ({
+              time: new Date(entry.date).getTime() / 1000 as UTCTimestamp, // UNIX timestamp (seconds)
               open: entry.open,
               high: entry.high,
               low: entry.low,
@@ -245,12 +226,11 @@ useEffect(() => {
           onClick={() => setShowSMA((prev) => !prev)}
           style={{ marginRight: "1rem" }}
         >
-          {showSMA ? "SMA" : "SMA"}
+          {showSMA ? "Hide SMA" : "Show SMA"}
         </button>
         <button onClick={() => setShowEMA((prev) => !prev)}>
-          {showEMA ? "EMA" : "EMA"}
+          {showEMA ? "Hide EMA" : "Show EMA"}
         </button>
-        
       </div>
       <div ref={chartContainerRef} style={{ position: "relative" }} />
     </div>
